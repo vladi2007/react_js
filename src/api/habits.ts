@@ -1,47 +1,40 @@
+// api/habits.ts
 import api from './api';
 
-// Получить все привычки
 const getHabits = async () => {
-  try {
-    const response = await api.get('habits');
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching habits:', error);
-    throw error;
-  }
+  const response = await api.get('habits');
+  return response.data;
 };
 
-// Создать новую привычку
-const createHabit = async (habitData) => {
-  try {
-    const response = await api.post('habits', habitData);
-    return response.data;
-  } catch (error) {
-    console.error('Error creating habit:', error);
-    throw error;
-  }
+const createHabit = async (habitData: any) => {
+  const response = await api.post('habits', habitData);
+  return response.data;
 };
 
-// Обновить привычку
-const updateHabit = async (id, habitData) => {
-  try {
-    const response = await api.put('habits', id, habitData);
-    return response.data;
-  } catch (error) {
-    console.error('Error updating habit:', error);
-    throw error;
-  }
+const updateHabit = async (id: string, habitData: any) => {
+  const response = await api.patch(`habits/${id}`, habitData);
+  return response.data;
 };
 
-// Удалить привычку
-const deleteHabit = async (id) => {
-  try {
-    const response = await api.delete('habits', id);
-    return response.data;
-  } catch (error) {
-    console.error('Error deleting habit:', error);
-    throw error;
-  }
+const deleteHabit = async (id: string) => {
+  const response = await api.delete(`habits/${id}`);
+  return response.data;
 };
 
-export { getHabits, createHabit, updateHabit, deleteHabit };
+// Новая функция для обновления прогресса на сегодня
+const toggleHabitToday = async (habit: any) => {
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const updatedProgress = habit.dailyProgress ? [...habit.dailyProgress] : [];
+  const index = updatedProgress.findIndex((p) => p.date === todayISO);
+
+  if (index === -1) {
+    updatedProgress.push({ date: todayISO, completed: true });
+  } else {
+    updatedProgress[index].completed = !updatedProgress[index].completed;
+  }
+
+  const response = await api.patch(`habits/${habit.id}`, { dailyProgress: updatedProgress });
+  return response.data;
+};
+
+export { getHabits, createHabit, updateHabit, deleteHabit, toggleHabitToday };
