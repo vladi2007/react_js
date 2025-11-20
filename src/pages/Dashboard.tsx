@@ -1,32 +1,9 @@
-// pages/Dashboard.tsx
+// Dashboard.tsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  getHabits,
-  toggleHabitToday as toggleHabitTodayAPI,
-} from "../api/habits";
+import { getHabits, toggleHabitToday} from "../api/habits";
+import { type Habit } from "../types/types";
 import "../styles/Dashboard.scss";
-
-interface Habit {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  goalType: string;
-  targetValue: number;
-  unit: string;
-  preferredTime: string;
-  motivation: string;
-  reward: string;
-  priority: string;
-  status: string;
-  difficulty: string;
-  createdAt: string;
-  startDate: string;
-  targetDate: string;
-  endDate?: string;
-  dailyProgress?: { date: string; completed: boolean }[];
-}
 
 const Dashboard: React.FC = () => {
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -48,21 +25,56 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const goto = (url: string) => () => navigate(url);
 
-  const todayISO = new Date().toISOString().slice(0, 10);
+  const normalizeDate = (date: Date | string): Date => {
+    const d = new Date(date);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  };
 
-  const isHabitDoneToday = (habit: Habit) =>
-    habit.dailyProgress?.some((p) => p.date === todayISO && p.completed);
 
-  const toggleHabitToday = async (habit: Habit) => {
+  const isSameDay = (d1: Date | string, d2: Date | string): boolean => {
+    return normalizeDate(d1).getTime() === normalizeDate(d2).getTime();
+  };
+
+ 
+  const isHabitDoneToday = (habit: Habit): boolean => {
+    const today = new Date();
+
+    return (
+      habit.dailyProgress?.some(
+        (progress) =>
+          isSameDay(progress.date, today) && Boolean(progress.completed)
+      ) || false
+    );
+  };
+
+  const handleToggleHabitToday = async (habit: Habit) => {
     try {
-      await toggleHabitTodayAPI(habit);
-      loadHabits();
+      const currentlyCompleted = isHabitDoneToday(habit);
+      await toggleHabitToday(habit.id, !currentlyCompleted);
+
+      const updatedHabits = await getHabits();
+      setHabits(updatedHabits);
     } catch (error) {
-      console.error("Ошибка обновления привычки за сегодня:", error);
+      console.error("Error toggling habit:", error);
     }
   };
+
+
+  const today = normalizeDate(new Date());
+
+  const stats = {
+    totalHabits: habits.length,
+    completedToday: habits.filter(isHabitDoneToday).length,
+    activeHabits: habits.filter(
+      (h) => !h.endDate && normalizeDate(h.targetDate) >= today
+    ).length,
+    completedTotal: habits.filter((h) => h.status === "completed").length,
+  };
+
+  const todayCompletedHabits = habits.filter(isHabitDoneToday);
+
+  const goto = (url: string) => () => navigate(url);
 
   const getPriorityColor = (priority: string) => {
     const colors: { [key: string]: string } = {
@@ -70,73 +82,41 @@ const Dashboard: React.FC = () => {
       medium: "#f59e0b",
       low: "#10b981",
     };
-    return colors[priority] || "#6b7280";
-  };
-
-  // Проверка, что привычка завершена полностью
-  const isHabitFullyCompleted = (habit: Habit) => {
-    const today = new Date();
-    const target = new Date(habit.targetDate);
-
-    if (target > today) return false;
-
-    const start = new Date(habit.startDate);
-    const dayCount = Math.ceil(
-      (target.getTime() - start.getTime()) / (1000 * 60 * 60 * 24) + 1
-    );
-
-    const completedDays =
-      habit.dailyProgress?.filter((p) => p.completed).length || 0;
-
-    return completedDays >= dayCount;
-  };
-
-  const todayCompletedHabits = habits.filter((h) => isHabitDoneToday(h));
-  const completedHabits = habits.filter((h) => isHabitFullyCompleted(h));
-
-  const stats = {
-    totalHabits: habits.length,
-    completedToday: todayCompletedHabits.length,
-    completedTotal: completedHabits.length,
-    activeHabits: habits.filter(
-      (h) => h.status === "active" && !isHabitFullyCompleted(h)
-    ).length,
-    highPriority: habits.filter((h) => h.priority === "high").length,
+    return colors[priority] ;
   };
 
   const motivationMessages = [
-    "Отличный старт! Продолжайте в том же духе! ",
-    "Вы на правильном пути! Каждый день - это новый шанс! ",
-    "Последовательность - ключ к успеху! ",
-    "Маленькие шаги приводят к большим результатам! ",
-    "Сегодня - прекрасный день для новых достижений! ",
+    "Отличный старт! Продолжайте в том же духе!",
+    "Вы на правильном пути! Каждый день — это новый шанс!",
+    "Последовательность — ключ к успеху!",
+    "Маленькие шаги приводят к большим результатам!",
+    "Сегодня — прекрасный день для новых достижений!",
   ];
 
   const randomMessage =
     motivationMessages[Math.floor(Math.random() * motivationMessages.length)];
 
-  if (loading) {
+
+
+  const recentHabits = habits.filter(
+    (habit) => !habit.endDate && normalizeDate(habit.targetDate) >= today && habit.status ==="active"
+  );
+
+  const highPriorityHabits = habits
+    .filter((h) => h.priority === "high")
+    .slice(0, 3);
+
+  if (loading)
     return (
       <div className="dashboard">
         <div className="loading">Загружаем ваши привычки...</div>
       </div>
     );
-  }
-
-  const recentHabits = habits.filter((habit) => {
-    const today = new Date();
-    const targetDate = new Date(habit.targetDate);
-    return !habit.endDate && targetDate >= today;
-  });
-
-  const highPriorityHabits = habits
-    .filter((h) => h.priority === "high")
-    .slice(0, 43);
 
   return (
     <div className="dashboard">
       <div className="dashboard-header">
-        <h1>Добро пожаловать! </h1>
+        <h1>Добро пожаловать!</h1>
         <p>Обзор вашего прогресса привычек</p>
       </div>
 
@@ -163,6 +143,7 @@ const Dashboard: React.FC = () => {
 
           <section className="today-section">
             <h2>Привычки на сегодня</h2>
+
             {recentHabits.length === 0 ? (
               <div className="empty-state">
                 <p>У вас пока нет привычек. Создайте первую!</p>
@@ -176,18 +157,17 @@ const Dashboard: React.FC = () => {
                   <div
                     key={habit.id}
                     className={`habit-item ${
-                      isHabitFullyCompleted(habit) ? "completed" : ""
+                      isHabitDoneToday(habit) ? "completed" : ""
                     }`}
                   >
                     <div className="habit-info">
                       <span className="habit-name">{habit.title}</span>
                       <span className="habit-category">{habit.category}</span>
                     </div>
+
                     <span
                       className="habit-priority"
-                      style={{
-                        backgroundColor: getPriorityColor(habit.priority),
-                      }}
+                      style={{ backgroundColor: getPriorityColor(habit.priority) }}
                     >
                       {habit.priority === "high"
                         ? "высокий"
@@ -195,22 +175,16 @@ const Dashboard: React.FC = () => {
                         ? "средний"
                         : "низкий"}
                     </span>
+
                     <button
-                      onClick={() => toggleHabitToday(habit)}
-                      style={{
-                        padding: "6px 12px",
-                        borderRadius: "6px",
-                        color: "#fff",
-                        border: "none",
-                        cursor: "pointer",
-                        backgroundColor: isHabitDoneToday(habit)
-                          ? "#10b981"
-                          : "#6b7280",
-                      }}
+                      onClick={() => handleToggleHabitToday(habit)}
+                      className={`toggle-btn ${
+                        isHabitDoneToday(habit) ? "completed" : ""
+                      }`}
                     >
                       {isHabitDoneToday(habit)
-                        ? "Сегодня сделано"
-                        : "Сделать сегодня"}
+                        ? "Выполнено"
+                        : "Отметить выполнение"}
                     </button>
                   </div>
                 ))}
@@ -220,25 +194,14 @@ const Dashboard: React.FC = () => {
 
           {todayCompletedHabits.length > 0 && (
             <section className="completed-section">
-              <h2> Завершено сегодня</h2>
+              <h2>Завершено сегодня</h2>
               <div className="completed-list">
-                {todayCompletedHabits.map((habit) => {
-                  const todayProgress = habit.dailyProgress?.find(
-                    (p) => p.date === todayISO
-                  );
-                  const completedTime = todayProgress?.completed
-                    ? new Date().toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
-                    : "—";
-
-                  return (
-                    <div key={habit.id} className="completed-item">
-                      <span className="completed-name">{habit.title}</span>
-                    </div>
-                  );
-                })}
+                {todayCompletedHabits.map((habit) => (
+                  <div key={habit.id} className="completed-item">
+                    <span className="completed-name">{habit.title}</span>
+                  
+                  </div>
+                ))}
               </div>
             </section>
           )}
@@ -255,9 +218,10 @@ const Dashboard: React.FC = () => {
                     </span>
                     <span
                       className={`habit-status ${
-                        isHabitFullyCompleted(habit) ? "completed" : ""
+                        isHabitDoneToday(habit) ? "completed" : ""
                       }`}
-                    ></span>
+                    >
+                    </span>
                   </div>
                 </div>
               ))}
@@ -265,7 +229,6 @@ const Dashboard: React.FC = () => {
           </section>
         </div>
 
-        {/* Правая колонка */}
         <div className="right-column">
           <section className="quick-actions">
             <h2>Быстрые действия</h2>
@@ -309,8 +272,9 @@ const Dashboard: React.FC = () => {
                     (h) => h.category === category
                   ).length;
                   const completed = habits.filter(
-                    (h) => h.category === category && isHabitFullyCompleted(h)
+                    (h) => h.category === category && isHabitDoneToday(h)
                   ).length;
+
                   return (
                     <div key={category} className="category-item">
                       <span className="category-name">{category}</span>
