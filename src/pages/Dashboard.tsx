@@ -135,7 +135,7 @@ const Dashboard: React.FC = () => {
 
             {recentHabits.length === 0 ? (
               <div className="empty-state">
-                <p>У вас пока нет привычек. Создайте первую!</p>
+                <p>Вы выполнили все привычки</p>
                 <button className="btn btn-primary" onClick={goto("/habits")}>
                   Создать привычку
                 </button>

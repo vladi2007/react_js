@@ -15,63 +15,33 @@ const db = mysql.createPool({
   port:3306
  
 });
-// server.ts - добавить эти эндпоинты
 
-
-// Обновить прогресс привычки
-// server.ts - обновим эндпоинт PATCH
 app.patch("/habits/:id/progress", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { date, completed } = req.body;
+
+    console.log(`Updating progress for habit ${id}, date: ${date}, completed: ${completed}`);
+
     const normalizedDate = new Date(date).toISOString().split('T')[0];
 
-    // Получаем привычку
-    const [habitRows] = await db.query("SELECT * FROM habits WHERE id = ?", [id]);
-    const habit = (habitRows as any[])[0];
-    if (!habit) return res.status(404).json({ error: "Habit not found" });
-
-    // Получаем прогресс
-    const [progressRows] = await db.query(
-      "SELECT * FROM daily_progress WHERE habit_id = ? ORDER BY date ASC",
-      [id]
+    const [existing] = await db.query(
+      "SELECT * FROM daily_progress WHERE habit_id = ? AND DATE(date) = ?",
+      [id, normalizedDate]
     );
-    const progress = progressRows as any[];
 
-    // Проверяем, достигнут ли targetValue
-    if (progress.length >= habit.targetValue) {
-      // Обновляем статус на completed
-      if (habit.status !== "completed") {
-        await db.query("UPDATE habits SET status = ? WHERE id = ?", ["completed", id]);
-      }
-      return res.json({ success: false, message: "Target already reached" });
-    }
-
-    // Проверяем существующую запись за эту дату
-    const existing = progress.find(p => new Date(p.date).toISOString().split('T')[0] === normalizedDate);
-
-    if (existing) {
+    if ((existing as any).length > 0) {
       // Обновляем существующую запись
       await db.query(
-        "UPDATE daily_progress SET completed = ? WHERE id = ?",
-        [completed, existing.id]
+        "UPDATE daily_progress SET completed = ? WHERE habit_id = ? AND DATE(date) = ?",
+        [completed, id, normalizedDate]
       );
     } else {
-      // Создаем новую запись
       await db.query(
         "INSERT INTO daily_progress (habit_id, date, completed) VALUES (?, ?, ?)",
         [id, normalizedDate, completed]
       );
-    }
-
-    // Проверяем, нужно ли обновить статус после добавления
-    const [updatedProgressRows] = await db.query(
-      "SELECT * FROM daily_progress WHERE habit_id = ?",
-      [id]
-    );
-    const updatedProgress = updatedProgressRows as any[];
-    if (updatedProgress.length >= habit.targetValue || new Date(habit.targetDate) <= new Date()) {
-      await db.query("UPDATE habits SET status = ? WHERE id = ?", ["completed", id]);
+      console.log(`Created new progress record`);
     }
 
     res.json({ success: true });
@@ -81,50 +51,31 @@ app.patch("/habits/:id/progress", async (req: Request, res: Response) => {
   }
 });
 
-
 // Получить все привычки
 
 app.get("/habits", async (req: Request, res: Response) => {
   try {
-    const [habitsRows] = await db.query("SELECT * FROM habits");
-    const habits = habitsRows as any[];
+    const [habits] = await db.query("SELECT * FROM habits");
+    const habitArray = habits as any[];
 
-    const today = new Date().toISOString().split("T")[0];
-
-    for (let habit of habits) {
-      // 1️⃣ Получаем прогресс привычки
-      const [progressRows] = await db.query(
+    for (let habit of habitArray) {
+      const [progress] = await db.query(
         "SELECT date, completed FROM daily_progress WHERE habit_id = ?",
         [habit.id]
       );
-
-      habit.dailyProgress = (progressRows as any[]).map(p => ({
-        date: p.date,
+      
+      habit.dailyProgress = (progress as any[]).map(p => ({
+        date: p.date, 
         completed: Boolean(p.completed)
       }));
-
-      // 2️⃣ Автоматически обновляем статус
-      const targetDate = habit.targetDate ? new Date(habit.targetDate).toISOString().split("T")[0] : null;
-      if (targetDate && targetDate <= today && habit.status !== "completed") {
-        habit.status = "completed";
-
-        // Обновляем в базе
-        await db.query(
-          "UPDATE habits SET status = ? WHERE id = ?",
-          [habit.status, habit.id]
-        );
-      }
     }
 
-    res.json(habits);
+    res.json(habitArray);
   } catch (err: any) {
-    console.error("Error fetching habits:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-
-// Создать привычку
 app.post("/habits", async (req: Request, res: Response) => {
   try {
     const {

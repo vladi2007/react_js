@@ -1,6 +1,5 @@
 // pages/CreateHabitPage.tsx
 import React, { useState } from "react";
-import axios from "axios";
 import '../styles/CreateHabitPage.scss';
 import { useHabits } from "../hooks/useHabits";
 interface HabitFormData {
@@ -83,7 +82,7 @@ const CreateHabitPage: React.FC = () => {
     };
 
     // Отправляем на ваш локальный бэкенд
-    const response = await createHabitAsync(habitData);
+     await createHabitAsync(habitData);
     setSuccess(`Привычка "${formData.title}" успешно создана!`);
     
     // Сброс формы
