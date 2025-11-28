@@ -22,13 +22,11 @@ export const getHabits = async (): Promise<Habit[]> => {
   return res.data.map(transformHabitData);
 };
 
-export const createHabit = async (habitData: Partial<Habit>) => {
+export const createHabit = async (habitData:any) => {
   const dataToSend = {
     ...habitData,
-    createdAt: habitData.createdAt?.toISOString(),
-    startDate: habitData.startDate?.toISOString(),
-    targetDate: habitData.targetDate?.toISOString(),
-    endDate: habitData.endDate?.toISOString(),
+    createdAt: habitData.createdAt,
+    status:habitData.status
   };
   
   const res = await axios.post(`${API_URL}/habits`, dataToSend);

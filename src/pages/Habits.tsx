@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 import '../styles/CreateHabitPage.scss';
-
+import { useHabits } from "../hooks/useHabits";
 interface HabitFormData {
   title: string;
   description: string;
@@ -20,6 +20,7 @@ interface HabitFormData {
 }
 
 const CreateHabitPage: React.FC = () => {
+    const { createHabitAsync } = useHabits();
   const [formData, setFormData] = useState<HabitFormData>({
     title: "",
     description: "",
@@ -82,8 +83,8 @@ const CreateHabitPage: React.FC = () => {
     };
 
     // Отправляем на ваш локальный бэкенд
-    const response = await axios.post("http://localhost:5000/habits", habitData);
-    setSuccess(`Привычка "${formData.title}" успешно создана! ID: ${response.data.id}`);
+    const response = await createHabitAsync(habitData);
+    setSuccess(`Привычка "${formData.title}" успешно создана!`);
     
     // Сброс формы
     setFormData({

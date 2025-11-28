@@ -1,10 +1,17 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './index.css'
-import App from './App.tsx'
+import ReactDOM from "react-dom/client";
+import App from "./App";
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
+import { queryClient } from "./hooks/useHabits";
+
+const persister = createAsyncStoragePersister({
+  storage: window.localStorage,
+  key: "habits-cache",
+});
+
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <PersistQueryClientProvider client={queryClient} persistOptions={{ persister }}>
     <App />
-  </StrictMode>,
-)
+  </PersistQueryClientProvider>
+);
