@@ -67,8 +67,7 @@ const Dashboard: React.FC = () => {
     totalHabits: habits.length,
     completedToday: habits.filter(isHabitDoneToday).length,
     activeHabits: habits.filter(
-      (h) => !h.endDate && normalizeDate(h.targetDate) >= today
-    ).length,
+      (h) => h.status==='active').length,
     completedTotal: habits.filter((h) => h.status === "completed").length,
   };
 
@@ -103,7 +102,7 @@ const Dashboard: React.FC = () => {
   );
 
   const highPriorityHabits = habits
-    .filter((h) => h.priority === "high")
+    .filter((h) => h.priority === "high" && h.status==='active' && normalizeDate(h.targetDate) >= today)
     .slice(0, 3);
 
   if (loading)
@@ -269,7 +268,7 @@ const Dashboard: React.FC = () => {
               {Array.from(new Set(habits.map((h) => h.category))).map(
                 (category) => {
                   const count = habits.filter(
-                    (h) => h.category === category
+                    (h) => h.category === category && h.status==='active'
                   ).length;
                   const completed = habits.filter(
                     (h) => h.category === category && isHabitDoneToday(h)
