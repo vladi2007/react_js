@@ -6,7 +6,7 @@ import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persi
 import { queryClient } from "./hooks/useHabits";
 
 const persister = createAsyncStoragePersister({
-  storage: window.localStorage,
+  storage: null,
   key: "habits-cache",
 });
 

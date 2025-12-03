@@ -1,5 +1,4 @@
-// Dashboard.tsx
-import React from "react";
+import React, { useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { type Habit } from "../types/types";
 import "../styles/Dashboard.scss";
@@ -12,87 +11,94 @@ const Dashboard: React.FC = () => {
   const habits: Habit[] = habitsQuery.data ?? [];
   const loading = habitsQuery.isLoading;
 
-  const normalizeDate = (date: Date | string): Date => {
+  const normalizeDate = useCallback((date: Date | string): Date => {
     const d = new Date(date);
     return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  };
+  }, []);
 
- 
+  const isHabitDoneToday = useCallback((habit: Habit): boolean => {
+    const today = toDateString(new Date());
+    return (
+      habit.dailyProgress?.some(
+        (p) => toDateString(p.date) === today && p.completed
+      ) ?? false
+    );
+  }, []);
 
- const isHabitDoneToday = (habit: Habit): boolean => {
-  const today = toDateString(new Date());
-  return habit.dailyProgress?.some(
-    (p) => toDateString(p.date) === today && p.completed
-  ) ?? false;
-};
+  const handleToggleHabitToday = useCallback(
+    async (habit: Habit) => {
+      const currentlyCompleted = isHabitDoneToday(habit);
+      try {
+        await toggleHabitAsync({
+          id: habit.id,
+          completed: !currentlyCompleted,
+        });
+      } catch (error) {
+        console.error("Error toggling habit:", error);
+      }
+    },
+    [isHabitDoneToday,toggleHabitAsync]
+  );
 
-  const handleToggleHabitToday = async (habit: Habit) => {
-    const currentlyCompleted = isHabitDoneToday(habit);
-    try {
-      await toggleHabitAsync({
-        id: habit.id,
-        completed: !currentlyCompleted,
-      });
-    } catch (error) {
-      console.error("Error toggling habit:", error);
-    }
-  };
+  const today = useMemo(() => normalizeDate(new Date()), [normalizeDate]);
+  const toDateString = useCallback((date: string | Date): string => {
+    if (typeof date === "string") return date; // уже корректно
+    return date.toISOString().slice(0, 10); // yyyy-mm-dd
+  }, []);
 
-  const today = normalizeDate(new Date());
-  const toDateString = (date: string | Date): string => {
-  if (typeof date === "string") return date; // уже корректно
-  return date.toISOString().slice(0, 10); // yyyy-mm-dd
-};
+  
+ const stats = useMemo(() => ({
+  totalHabits: habits.length,
+  completedToday: habits.filter(isHabitDoneToday).length,
+  activeHabits: habits.filter((h) => h.status === "active").length,
+  completedTotal: habits.filter((h) => h.status === "completed").length,
+}), [habits, isHabitDoneToday]);
 
-const isSameDay = (d1: string | Date, d2: string | Date): boolean => {
-  return toDateString(d1) === toDateString(d2);
-};
-  const stats = {
-    totalHabits: habits.length,
-    completedToday: habits.filter(isHabitDoneToday).length,
-    activeHabits: habits.filter((h) => h.status === "active").length,
-    completedTotal: habits.filter((h) => h.status === "completed").length,
-  };
+  const todayCompletedHabits = useMemo(() =>habits.filter(isHabitDoneToday), [habits,isHabitDoneToday]);
 
-  const todayCompletedHabits = habits.filter(isHabitDoneToday);
+  const goto = useCallback((url: string) => () => navigate(url),[]);
 
-  const goto = (url: string) => () => navigate(url);
-
-  const getPriorityColor = (priority: string) => {
+  const getPriorityColor =useCallback((priority: string) => {
     const colors: Record<string, string> = {
       high: "#ef4444",
       medium: "#f59e0b",
       low: "#10b981",
     };
     return colors[priority];
-  };
+  }, []);
 
-  const motivationMessages = [
+  const motivationMessages = useMemo(() =>[
     "Отличный старт! Продолжайте в том же духе!",
     "Вы на правильном пути! Каждый день — это новый шанс!",
     "Последовательность — ключ к успеху!",
     "Маленькие шаги приводят к большим результатам!",
     "Сегодня — прекрасный день для новых достижений!",
-  ];
+  ], []);
 
-  const randomMessage =
-    motivationMessages[Math.floor(Math.random() * motivationMessages.length)];
+  const randomMessage = useMemo(() => {
+  const index = Math.floor(Math.random() * motivationMessages.length);
+  return motivationMessages[index];
+}, []);
 
-  const recentHabits = habits.filter(
-    (habit) =>
-      !habit.endDate &&
-      normalizeDate(habit.targetDate) >= today &&
-      habit.status === "active"
-  );
+  const recentHabits = useMemo(
+  () =>
+    habits.filter(
+      (habit) =>
+        !habit.endDate &&
+        normalizeDate(habit.targetDate) >= today &&
+        habit.status === "active"
+    ),
+  [habits, normalizeDate, today]
+);
 
-  const highPriorityHabits = habits
+  const highPriorityHabits = useMemo(() => habits
     .filter(
       (h) =>
         h.priority === "high" &&
         h.status === "active" &&
         normalizeDate(h.targetDate) >= today
     )
-    .slice(0, 3);
+    .slice(0, 3), [habits,normalizeDate,today]);
 
   if (loading) {
     return (
@@ -111,7 +117,6 @@ const isSameDay = (d1: string | Date, d2: string | Date): boolean => {
 
       <div className="dashboard-content">
         <div className="left-column">
-          {/* STAT CARDS */}
           <div className="stats-grid">
             <div className="stat-card">
               <div className="stat-value">{stats.totalHabits}</div>
@@ -131,7 +136,6 @@ const isSameDay = (d1: string | Date, d2: string | Date): boolean => {
             </div>
           </div>
 
-          {/* HABITS FOR TODAY */}
           <section className="today-section">
             <h2>Привычки на сегодня</h2>
 
@@ -185,7 +189,6 @@ const isSameDay = (d1: string | Date, d2: string | Date): boolean => {
             )}
           </section>
 
-          {/* TODAY COMPLETED */}
           {todayCompletedHabits.length > 0 && (
             <section className="completed-section">
               <h2>Завершено сегодня</h2>
@@ -199,7 +202,6 @@ const isSameDay = (d1: string | Date, d2: string | Date): boolean => {
             </section>
           )}
 
-          {/* HIGH PRIORITY */}
           <section className="progress-section">
             <h2>Важные привычки</h2>
             <div className="progress-chart">
@@ -222,7 +224,6 @@ const isSameDay = (d1: string | Date, d2: string | Date): boolean => {
           </section>
         </div>
 
-        {/* RIGHT COLUMN */}
         <div className="right-column">
           <section className="quick-actions">
             <h2>Быстрые действия</h2>

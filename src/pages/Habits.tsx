@@ -1,7 +1,12 @@
-// pages/CreateHabitPage.tsx
-import React, { useState } from "react";
-import '../styles/CreateHabitPage.scss';
+import React, { useMemo, useCallback } from "react";
+import "../styles/CreateHabitPage.scss";
 import { useHabits } from "../hooks/useHabits";
+
+import { useForm, type SubmitHandler } from "react-hook-form";
+import { yupResolver } from "@hookform/resolvers/yup";
+import { useFormValidation } from "../hooks/useForm";
+import ErrorMessage from "../components/ErrorMessage";
+
 interface HabitFormData {
   title: string;
   description: string;
@@ -19,319 +24,208 @@ interface HabitFormData {
 }
 
 const CreateHabitPage: React.FC = () => {
-    const { createHabitAsync } = useHabits();
-  const [formData, setFormData] = useState<HabitFormData>({
-    title: "",
-    description: "",
-    category: "Здоровье",
-    goalType: "daily",
-    targetValue: 1,
-    unit: "раз",
-    preferredTime: "утро",
-    motivation: "",
-    reward: "",
-    priority: "medium",
-    difficulty: "medium",
-    startDate: "",
-    targetDate: "",
-  });
+  const { createHabitAsync } = useHabits();
 
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === "targetValue" ? Number(value) : value,
-    }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setError(null);
-  setSuccess(null);
-  setIsSubmitting(true);
-
-  // Валидация
-  if (!formData.title.trim()) {
-    setError("Пожалуйста, введите название привычки");
-    setIsSubmitting(false);
-    return;
-  }
-
-  if (!formData.startDate || !formData.targetDate) {
-    setError("Пожалуйста, укажите дату начала и окончания");
-    setIsSubmitting(false);
-    return;
-  }
-
-  if (new Date(formData.targetDate) <= new Date(formData.startDate)) {
-    setError("Дата окончания должна быть позже даты начала");
-    setIsSubmitting(false);
-    return;
-  }
-
-  try {
-    const habitData = {
-      ...formData,
-      status: "active",
-      // Форматируем дату для MySQL
-      createdAt: new Date().toISOString().slice(0, 19).replace('T', ' ')
-    };
-
-    // Отправляем на ваш локальный бэкенд
-     await createHabitAsync(habitData);
-    setSuccess(`Привычка "${formData.title}" успешно создана!`);
-    
-    // Сброс формы
-    setFormData({
-      title: "",
-      description: "",
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    reset,
+  } = useForm<HabitFormData>({
+    resolver: yupResolver(useFormValidation),
+    defaultValues: {
       category: "Здоровье",
       goalType: "daily",
       targetValue: 1,
       unit: "раз",
       preferredTime: "утро",
-      motivation: "",
-      reward: "",
       priority: "medium",
       difficulty: "medium",
-      startDate: new Date().toISOString().slice(0, 19).replace('T', ' '),
-      targetDate: "",
-    });
-  } catch (err: any) {
-    console.error("Error creating habit:", err);
-    setError(err.response?.data?.error || "Ошибка при создании привычки. Проверьте подключение к серверу.");
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+    },
+  });
 
-  const isRequired = (fieldName: string) => {
-    const requiredFields = ['title', 'startDate', 'targetDate'];
-    return requiredFields.includes(fieldName);
-  };
+  const addHours = useCallback((dateStr: string | Date, hours: number) => {
+    const date = new Date(dateStr);
+    date.setHours(date.getHours() + hours);
+    return date.toISOString().slice(0, 19).replace("T", " ");
+  }, []);
+
+  const onSubmit: SubmitHandler<HabitFormData> = useCallback(
+    async (data: HabitFormData) => {
+      try {
+        console.log("Форма отправлена, data =", data);
+
+        const habitData = {
+          ...data,
+          status: "active",
+          startDate: addHours(data.startDate, 5),
+          targetDate: addHours(data.targetDate, 5),
+          createdAt: addHours(new Date(), 5),
+        };
+
+        await createHabitAsync(habitData);
+        reset();
+      } catch (err) {
+        console.error("Ошибка при создании привычки:", err);
+      }
+    },
+    [ addHours,createHabitAsync, reset]
+  );
 
   return (
     <div className="create-habit-page">
       <h1>Создать новую привычку</h1>
-      
-      <form onSubmit={handleSubmit} className="habit-form">
-        {/* Основная информация */}
-        <div className="form-section">
-          <div className="section-title">Основная информация</div>
-          
-          <div className="form-group">
-            <label className={isRequired('title') ? 'required' : ''}>Название привычки</label>
-            <div className="input-wrapper">
-              <input 
-                type="text" 
-                name="title" 
-                value={formData.title} 
-                onChange={handleChange}
-                placeholder="Например: Утренняя зарядка"
-                required
-              />
-            </div>
-            <div className="input-hint">Краткое и понятное название</div>
-          </div>
 
-          <div className="form-group">
-            <label>Описание</label>
-            <div className="input-wrapper">
-              <textarea 
-                name="description" 
-                value={formData.description} 
-                onChange={handleChange}
-                placeholder="Опишите вашу привычку подробнее..."
-              />
-            </div>
-          </div>
+      <form onSubmit={handleSubmit(onSubmit)} className="habit-form">
+        <div className="form-group">
+          <label>Название привычки</label>
+          <input
+            type="text"
+            className={errors.title ? "error" : ""}
+            {...register("title")}
+          />
+          <ErrorMessage message={errors.title?.message} />
         </div>
 
-        {/* Настройки цели */}
-        <div className="form-section">
-          <div className="section-title">Настройки цели</div>
-          
-          <div className="form-row">
-            <div className="form-group">
-              <label>Категория</label>
-              <div className="input-wrapper">
-                <select name="category" value={formData.category} onChange={handleChange}>
-                  <option value="Здоровье">Здоровье</option>
-                  <option value="Спорт">Спорт</option>
-                  <option value="Образование">Образование</option>
-                  <option value="Работа">Работа</option>
-                  <option value="Личное">Личное</option>
-                  <option value="Финансы">Финансы</option>
-                  <option value="Творчество">Творчество</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label>Тип цели</label>
-              <div className="input-wrapper">
-                <select name="goalType" value={formData.goalType} onChange={handleChange}>
-                  <option value="daily">Ежедневно</option>
-                  <option value="weekly">Еженедельно</option>
-                  <option value="monthly">Ежемесячно</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label>Цель (значение)</label>
-              <div className="input-wrapper">
-                <input 
-                  type="number" 
-                  name="targetValue" 
-                  value={formData.targetValue} 
-                  onChange={handleChange}
-                  min="1"
-                  placeholder="1"
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label>Единицы измерения</label>
-              <div className="input-wrapper">
-                <input 
-                  type="text" 
-                  name="unit" 
-                  value={formData.unit} 
-                  onChange={handleChange}
-                  placeholder="раз, минут, страниц..."
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label>Предпочтительное время</label>
-            <div className="input-wrapper">
-              <select name="preferredTime" value={formData.preferredTime} onChange={handleChange}>
-                <option value="утро">Утро</option>
-                <option value="день">День</option>
-                <option value="вечер">Вечер</option>
-                <option value="весь день">Весь день</option>
-              </select>
-            </div>
-          </div>
+        <div className="form-group">
+          <label>Описание</label>
+          <textarea
+            className={errors.description ? "error" : ""}
+            {...register("description")}
+          />
+          <ErrorMessage message={errors.description?.message} />
         </div>
 
-        {/* Дополнительные настройки */}
-        <div className="form-section">
-          <div className="section-title">Дополнительные настройки</div>
-          
-          <div className="form-row">
-            <div className="form-group">
-              <label>Приоритет</label>
-              <div className="input-wrapper">
-                <select name="priority" value={formData.priority} onChange={handleChange}>
-                  <option value="low">Низкий</option>
-                  <option value="medium">Средний</option>
-                  <option value="high">Высокий</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label>Сложность</label>
-              <div className="input-wrapper">
-                <select name="difficulty" value={formData.difficulty} onChange={handleChange}>
-                  <option value="easy">Легкая</option>
-                  <option value="medium">Средняя</option>
-                  <option value="hard">Сложная</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label>Мотивация</label>
-            <div className="input-wrapper">
-              <textarea 
-                name="motivation" 
-                value={formData.motivation} 
-                onChange={handleChange}
-                placeholder="Что вас мотивирует выполнять эту привычку?"
-              />
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label>Награда</label>
-            <div className="input-wrapper">
-              <textarea 
-                name="reward" 
-                value={formData.reward} 
-                onChange={handleChange}
-                placeholder="Какую награду вы себе пообещаете?"
-              />
-            </div>
-          </div>
+        <div className="form-group">
+          <label>Категория</label>
+          <select
+            className={errors.category ? "error" : ""}
+            {...register("category")}
+          >
+            <option value="Здоровье">Здоровье</option>
+            <option value="Спорт">Спорт</option>
+            <option value="Образование">Образование</option>
+            <option value="Работа">Работа</option>
+            <option value="Личное">Личное</option>
+            <option value="Финансы">Финансы</option>
+            <option value="Творчество">Творчество</option>
+          </select>
+          <ErrorMessage message={errors.category?.message} />
         </div>
 
-        {/* Даты */}
-        <div className="form-section">
-          <div className="section-title">Период выполнения</div>
-          
-          <div className="form-row">
-            <div className="form-group">
-              <label className="required">Дата начала</label>
-              <div className="input-wrapper">
-                <input 
-                  type="date" 
-                  name="startDate" 
-                  value={formData.startDate} 
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label className="required">Дата окончания</label>
-              <div className="input-wrapper">
-                <input 
-                  type="date" 
-                  name="targetDate" 
-                  value={formData.targetDate} 
-                  onChange={handleChange}
-                  min={formData.startDate}
-                  required
-                />
-              </div>
-            </div>
-          </div>
+        <div className="form-group">
+          <label>Тип цели</label>
+          <select
+            className={errors.goalType ? "error" : ""}
+            {...register("goalType")}
+          >
+            <option value="daily">Ежедневно</option>
+            <option value="weekly">Еженедельно</option>
+            <option value="monthly">Ежемесячно</option>
+          </select>
+          <ErrorMessage message={errors.goalType?.message} />
         </div>
 
-        <button 
-          type="submit" 
-          className="submit-button"
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? (
-            <span className="button-loading">
-              <div className="spinner"></div>
-              Создание...
-            </span>
-          ) : (
-            'Создать привычку'
-          )}
+        <div className="form-group">
+          <label>Цель</label>
+          <input
+            type="number"
+            className={errors.targetValue ? "error" : ""}
+            {...register("targetValue")}
+          />
+          <ErrorMessage message={errors.targetValue?.message} />
+        </div>
+
+        <div className="form-group">
+          <label>Единицы</label>
+          <input
+            type="text"
+            className={errors.unit ? "error" : ""}
+            {...register("unit")}
+          />
+          <ErrorMessage message={errors.unit?.message} />
+        </div>
+
+        <div className="form-group">
+          <label>Предпочтительное время</label>
+          <select
+            className={errors.preferredTime ? "error" : ""}
+            {...register("preferredTime")}
+          >
+            <option value="утро">Утро</option>
+            <option value="день">День</option>
+            <option value="вечер">Вечер</option>
+            <option value="весь день">Весь день</option>
+          </select>
+          <ErrorMessage message={errors.preferredTime?.message} />
+        </div>
+
+        <div className="form-group">
+          <label>Дата начала</label>
+          <input
+            type="date"
+            className={errors.startDate ? "error" : ""}
+            {...register("startDate")}
+          />
+          <ErrorMessage message={errors.startDate?.message} />
+        </div>
+
+        <div className="form-group">
+          <label>Дата окончания</label>
+          <input
+            type="date"
+            className={errors.targetDate ? "error" : ""}
+            {...register("targetDate")}
+          />
+          <ErrorMessage message={errors.targetDate?.message} />
+        </div>
+
+        <div className="form-group">
+          <label>Приоритет</label>
+          <select
+            className={errors.priority ? "error" : ""}
+            {...register("priority")}
+          >
+            <option value="low">Низкий</option>
+            <option value="medium">Средний</option>
+            <option value="high">Высокий</option>
+          </select>
+          <ErrorMessage message={errors.priority?.message} />
+        </div>
+
+        <div className="form-group">
+          <label>Сложность</label>
+          <select
+            className={errors.difficulty ? "error" : ""}
+            {...register("difficulty")}
+          >
+            <option value="easy">Легкая</option>
+            <option value="medium">Средняя</option>
+            <option value="hard">Сложная</option>
+          </select>
+          <ErrorMessage message={errors.difficulty?.message} />
+        </div>
+
+        <div className="form-group">
+          <label>Мотивация</label>
+          <textarea
+            className={errors.motivation ? "error" : ""}
+            {...register("motivation")}
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Награда</label>
+          <textarea
+            className={errors.reward ? "error" : ""}
+            {...register("reward")}
+          />
+        </div>
+
+        <button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? "Создание..." : "Создать привычку"}
         </button>
       </form>
-
-      <div className="form-messages">
-        {error && <div className="error-message">{error}</div>}
-        {success && <div className="success-message">{success}</div>}
-      </div>
     </div>
   );
 };
