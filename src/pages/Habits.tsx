@@ -32,7 +32,7 @@ const CreateHabitPage: React.FC = () => {
     reward: "",
     priority: "medium",
     difficulty: "medium",
-    startDate: new Date().toISOString().split('T')[0],
+    startDate: "",
     targetDate: "",
   });
 
@@ -98,7 +98,7 @@ const CreateHabitPage: React.FC = () => {
       reward: "",
       priority: "medium",
       difficulty: "medium",
-      startDate: new Date().toISOString().split('T')[0],
+      startDate: new Date().toISOString().slice(0, 19).replace('T', ' '),
       targetDate: "",
     });
   } catch (err: any) {

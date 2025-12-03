@@ -12,7 +12,8 @@ const db = mysql.createPool({
   user: "habit_user",
   password: "1234",
   database: "habits_app",
-  port:3306
+  port:3306,
+  dateStrings: true
  
 });
 
@@ -23,7 +24,7 @@ app.patch("/habits/:id/progress", async (req: Request, res: Response) => {
 
     console.log(`Updating progress for habit ${id}, date: ${date}, completed: ${completed}`);
 
-    const normalizedDate = new Date(date).toISOString().split('T')[0];
+    const normalizedDate = new Date(date).toISOString().slice(0, 19).replace('T', ' ')
 
     const [existing] = await db.query(
       "SELECT * FROM daily_progress WHERE habit_id = ? AND DATE(date) = ?",

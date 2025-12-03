@@ -17,19 +17,14 @@ const Dashboard: React.FC = () => {
     return new Date(d.getFullYear(), d.getMonth(), d.getDate());
   };
 
-  const isSameDay = (d1: Date | string, d2: Date | string): boolean => {
-    return normalizeDate(d1).getTime() === normalizeDate(d2).getTime();
-  };
+ 
 
-  const isHabitDoneToday = (habit: Habit): boolean => {
-    const today = new Date();
-    return (
-      habit.dailyProgress?.some(
-        (progress) =>
-          isSameDay(progress.date, today) && Boolean(progress.completed)
-      ) || false
-    );
-  };
+ const isHabitDoneToday = (habit: Habit): boolean => {
+  const today = toDateString(new Date());
+  return habit.dailyProgress?.some(
+    (p) => toDateString(p.date) === today && p.completed
+  ) ?? false;
+};
 
   const handleToggleHabitToday = async (habit: Habit) => {
     const currentlyCompleted = isHabitDoneToday(habit);
@@ -44,7 +39,14 @@ const Dashboard: React.FC = () => {
   };
 
   const today = normalizeDate(new Date());
+  const toDateString = (date: string | Date): string => {
+  if (typeof date === "string") return date; // уже корректно
+  return date.toISOString().slice(0, 10); // yyyy-mm-dd
+};
 
+const isSameDay = (d1: string | Date, d2: string | Date): boolean => {
+  return toDateString(d1) === toDateString(d2);
+};
   const stats = {
     totalHabits: habits.length,
     completedToday: habits.filter(isHabitDoneToday).length,
