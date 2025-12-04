@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard';
 import Habits from './pages/Habits';
 import Analytics from './pages/Analytics';
 import Profile from './pages/Profile';
+import Chat from './pages/Chat';
 import './styles/App.scss';
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
             <Route path="/habits" element={<Habits />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/chat" element={<Chat />} />
           </Routes>
         </main>
       </div>

@@ -20,6 +20,7 @@
     "react-dom": "^19.2.0",
     "react-hook-form": "^7.67.0",
     "react-router-dom": "^7.9.6",
+    "socket.io-client": "^4.8.1",
     "yup": "^1.7.1"
   },
   "devDependencies": {
@@ -28,6 +29,7 @@
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "@vitejs/plugin-react-swc": "^4.2.1",
+    "concurrently": "^9.2.1",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",

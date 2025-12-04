@@ -35,6 +35,12 @@ const Navigation: React.FC = () => {
           >
             Профиль
           </Link>
+          <Link 
+            to="/chat" 
+            className={location.pathname === '/chat' ? 'active' : ''}
+          >
+            чат
+          </Link>
         </div>
       </div>
     </nav>
