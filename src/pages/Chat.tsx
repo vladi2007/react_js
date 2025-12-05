@@ -1,40 +1,52 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef  } from "react";
 import { createSocket } from "../api/socket.ts";
 
 export default function Chat() {
     const [userId, setUserId] = useState("");
   const [username, setUsername] = useState("");
   const [isLogged, setIsLogged] = useState(false);
-
+  const [toUserId, setToUserId] =useState("");
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
   const [users, setUsers] = useState([]);
-    let socket:any=null
+    const socketRef = useRef(null);
+
    const handleLogin = () => {
     if (!username || !userId) return;
 
-     socket = createSocket(userId, username);
+     socketRef.current = createSocket(userId, username);
 
-    socket.on("chat_message", (msg) => {
+    socketRef.current.on("chat_message", (msg) => {
       setMessages((prev) => [...prev, msg]);
     });
-
-    socket.on("system_message", (msg) => {
+    socketRef.current.on("private_message", (msg) => {
+      setMessages((prev) => [...prev, msg]);
+    });
+    socketRef.current.on("system_message", (msg) => {
       setMessages((prev) => [...prev, { system: true, text: msg }]);
     });
 
-    socket.on("user_list", (list) => setUsers(list));
+    socketRef.current.on("user_list", (list) => setUsers(list));
 
     setIsLogged(true);
   };
 
   
   
+  const sendPrivateMessage = () => {
+   if (!message) return;
 
+  socketRef.current.emit("private_message", {
+    toUserId:toUserId,
+    text: message,
+  });
+
+  setMessage("");
+};
   const sendMessage = () => {
     if (!message) return;
     
-    socket.emit("chat_message", message);
+    socketRef.current.emit("chat_message", message);
     setMessage("");
   };
 
@@ -84,18 +96,27 @@ export default function Chat() {
             </div>
 
             <div style={{ marginTop: 10 }}>
+              <h2>Введите сообщение</h2>
               <input
                 value={message}
-                onChange={(e) => setMessage(e.target.value, soc)}
+                onChange={(e) => setMessage(e.target.value)}
               />
-              <button onClick={sendMessage}>Отправить</button>
+              <button onClick={sendMessage}>Отправить сообщение всем</button>
+            </div>
+              <div style={{ marginTop: 10 }}>
+             <h2>Введите id кому хотите отправить приватное сообщение</h2>
+            <input type="number"
+              value={toUserId}
+              onChange={(e) => setToUserId(e.target.value)}
+            />
+              <button onClick={sendPrivateMessage}>Отправить приватное сообщение</button>
             </div>
           </>
         )}
       </div>
 
       <div style={{ width: 200 }}>
-        <h3>Онлайн:</h3>
+        <h3>Онлайн:{users.length}</h3>
         {users.map((u, i) => (
           <div key={i}>• {u}</div>
         ))}

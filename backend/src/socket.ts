@@ -7,39 +7,52 @@ const io = new Server(server, {
     origin: "*",
   },
 });
-
+const socketsByUserId = new Map();
 const users = new Map();
 
 io.on("connection", (socket) => {
-  console.log("User connected:", socket.id);
-    const { userid, name } = socket.handshake.query;
-    console.log(socket.handshake.query)
-  socket.on("set_username", (username) => {
-    users.set(socket.id, username);
-    
-    io.emit("user_list", Array.from(users.values()));
+  const { userid, name } = socket.handshake.query;
+ 
+  // Привязываем userId <-> socket.id
+  socketsByUserId.set(userid, socket.id);
+  users.set(socket.id, name);
 
-    io.emit("system_message", `${username} подключился`);
-  });
-
-  // Получаем сообщение
+  console.log("Connected:", userid, name);
+   io.emit("user_list",  Array.from(users.values()))
   socket.on("chat_message", (msg) => {
-    const username = users.get(socket.id) || "Аноним";
-
     io.emit("chat_message", {
       id: socket.id,
-      username,
+      username: name,
       text: msg,
       time: Date.now(),
     });
   });
 
-  socket.on("disconnect", () => {
-    const username = users.get(socket.id);
-    users.delete(socket.id);
+  socket.on("private_message", ({ toUserId, text }) => {
+    const targetSocketId = socketsByUserId.get(toUserId);
+    console.log(targetSocketId)
+    if (targetSocketId) {
+      io.to(targetSocketId).emit("private_message", {
+       id: socket.id,
+       private: true,
+        username: name,
+        text:text,
+        time: Date.now(),
+      });
+    }
+      socket.emit("private_message", {
+       id: socket.id,
+       private: true,
+        username: name,
+        text:text,
+        time: Date.now(),
+      })
+  });
 
-    io.emit("system_message", `${username ?? "Аноним"} отключился`);
-    io.emit("user_list", Array.from(users.values()));
+  socket.on("disconnect", () => {
+    socketsByUserId.delete(userid);
+    users.delete(socket.id);
+    io.emit("system_message", `${name} отключился.`);
   });
 });
 
